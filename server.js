@@ -290,7 +290,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Manual next card (for testing)
+    // Next card (host only)
     socket.on('nextCard', () => {
         const player = findPlayerInRoom(socket.id);
         if (!player) return;
@@ -298,10 +298,17 @@ io.on('connection', (socket) => {
         const room = rooms.get(player.room);
         if (room.gameState !== 'playing') return;
         
+        // Only allow the host (first player) to advance cards
+        const players = Array.from(room.players.values());
+        if (players.length === 0 || players[0].id !== socket.id) {
+            socket.emit('error', 'Kun hosten kan gå til neste kort');
+            return;
+        }
+        
         room.currentCard++;
         revealNextCard(room);
     });
-    socket.on('drawBusRouteCard', ({ level }) => {
+    socket.on('clickBusRouteCard', ({ level, position }) => {
         const player = findPlayerInRoom(socket.id);
         if (!player) return;
         
@@ -312,18 +319,29 @@ io.on('connection', (socket) => {
         const pyramidLevel = room.pyramid[level];
         if (!pyramidLevel) return;
         
-        // Draw a random card (simplified)
+        // Draw a random card from the clicked position
         const suits = ['♠', '♣', '♥', '♦'];
         const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
         const randomSuit = suits[Math.floor(Math.random() * suits.length)];
         const randomValue = values[Math.floor(Math.random() * values.length)];
         const drawnCard = { suit: randomSuit, value: randomValue };
         
-        // Check if it's a face card (A, J, Q, K)
+        // Check if it's a face card (A=14, J=11, Q=12, K=13)
         const isFaceCard = ['A', 'J', 'Q', 'K'].includes(randomValue);
         
+        // Update the specific pyramid card at this position
+        const totalPosition = position;
+        room.pyramidCards[totalPosition] = drawnCard;
+        
+        // Reveal the card to all players
+        io.to(room.code).emit('cardRevealed', {
+            card: drawnCard,
+            position: totalPosition,
+            pyramidLevel: pyramidLevel
+        });
+        
         if (isFaceCard) {
-            // Player must drink and restart
+            // Player must drink and restart - shuffle pyramid
             io.to(room.code).emit('busRouteFaceCard', {
                 card: drawnCard,
                 level: level,
@@ -331,8 +349,9 @@ io.on('connection', (socket) => {
                 player: player.name
             });
             
-            // Reset to bottom of pyramid
+            // Shuffle and reset pyramid
             setTimeout(() => {
+                shuffleBusRoutePyramid(room);
                 io.to(socket.id).emit('busRouteRestart');
             }, 2000);
         } else {
@@ -356,6 +375,24 @@ io.on('connection', (socket) => {
                 }, 1500);
             }
         }
+    });
+    
+    socket.on('drawBusRouteCard', ({ level }) => {
+        // Redirect to new click-based system
+        const player = findPlayerInRoom(socket.id);
+        if (!player) return;
+        
+        const room = rooms.get(player.room);
+        if (room.gameState !== 'busroute' || room.busRoutePlayer !== socket.id) return;
+        
+        // Find a card at the current level and simulate a click
+        let position = 0;
+        for (let i = 0; i < level; i++) {
+            position += room.pyramid[i].cards;
+        }
+        
+        // Simulate clicking the first card of the level
+        socket.emit('clickBusRouteCard', { level, position });
     });
     socket.on('disconnect', () => {
         console.log('Player disconnected:', socket.id);
@@ -465,22 +502,24 @@ function revealNextCard(room) {
         pyramidLevel: getPyramidLevel(room.currentCard, room.pyramid)
     });
     
-    // Auto-advance if no one can play after 10 seconds
-    setTimeout(() => {
-        if (room.gameState === 'playing' && room.currentCard < room.pyramidCards.length) {
-            room.currentCard++;
-            revealNextCard(room);
-        }
-    }, 10000);
+    // No auto-advance - only host can advance cards manually
+}
+
+function shuffleBusRoutePyramid(room) {
+    // Shuffle and reset pyramid for bus route
+    room.deck = shuffleDeck(createDeck());
+    const totalPyramidCards = room.pyramid.reduce((sum, level) => sum + level.cards, 0);
+    room.pyramidCards = room.deck.splice(0, totalPyramidCards);
+    
+    // Notify all players that pyramid was shuffled
+    io.to(room.code).emit('pyramidShuffled', { pyramid: room.pyramid });
 }
 
 function startBusRoute(room) {
     room.gameState = 'busroute';
     
     // Reset pyramid for bus route
-    room.deck = shuffleDeck(createDeck());
-    const totalPyramidCards = room.pyramid.reduce((sum, level) => sum + level.cards, 0);
-    room.pyramidCards = room.deck.splice(0, totalPyramidCards);
+    shuffleBusRoutePyramid(room);
     room.currentCard = 0;
     
     const busRoutePlayer = room.players.get(room.busRoutePlayer);

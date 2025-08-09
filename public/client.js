@@ -49,6 +49,11 @@ function initializeSocket() {
         initializeGamePyramid(pyramid);
         updatePlayersList(players);
         updateGameStatus('Spillet startet!');
+        
+        // Show/hide next card button based on if user is host
+        const isHost = currentPlayer.id === players[0].id;
+        updateNextCardButton(isHost);
+        
         showNotification('Spillet har startet! Sjekk kortene dine.', 'success');
     });
     
@@ -119,6 +124,39 @@ function initializeSocket() {
     socket.on('busRouteRestart', () => {
         showNotification('Start bussruten på nytt fra bunnen!', 'warning');
         updateBusRouteLevel(0);
+        
+        // Reset pyramid display to blank cards
+        const pyramidCards = document.querySelectorAll('.pyramid-card .card-content');
+        pyramidCards.forEach(cardContent => {
+            cardContent.innerHTML = '';
+        });
+        
+        // Remove revealed classes
+        const allPyramidCards = document.querySelectorAll('.pyramid-card');
+        allPyramidCards.forEach(card => {
+            card.classList.remove('revealed', 'face-card');
+        });
+        
+        makePyramidClickableForBusRoute();
+    });
+    
+    socket.on('pyramidShuffled', ({ pyramid }) => {
+        showNotification('Pyramiden ble stokket om!', 'info');
+        
+        // Reset pyramid display
+        const pyramidCards = document.querySelectorAll('.pyramid-card .card-content');
+        pyramidCards.forEach(cardContent => {
+            cardContent.innerHTML = '';
+        });
+        
+        // Remove all classes
+        const allPyramidCards = document.querySelectorAll('.pyramid-card');
+        allPyramidCards.forEach(card => {
+            card.classList.remove('revealed', 'face-card', 'has-played-card', 'clickable-bus-route');
+            // Remove any stacked cards
+            const stackedCards = card.querySelectorAll('.stacked-card');
+            stackedCards.forEach(sc => sc.remove());
+        });
     });
     
     socket.on('continueToNextLevel', ({ nextLevel }) => {
@@ -288,6 +326,16 @@ function updateCurrentCardInfo(card, pyramidLevel) {
         `${card.value}${card.suit} (${pyramidLevel.sips} slurk${pyramidLevel.sips > 1 ? 'er' : ''})`;
 }
 
+function updateNextCardButton(isHost) {
+    const nextCardBtn = document.getElementById('next-card-btn');
+    if (isHost) {
+        nextCardBtn.style.display = 'block';
+        nextCardBtn.textContent = '⏭️ Neste kort (host)';
+    } else {
+        nextCardBtn.style.display = 'none';
+    }
+}
+
 function initializeGamePyramid(pyramid) {
     const pyramidContainer = document.getElementById('game-pyramid');
     pyramidContainer.innerHTML = '';
@@ -304,16 +352,16 @@ function initializeGamePyramid(pyramid) {
             card.dataset.sips = level.sips;
             card.dataset.position = getCardPosition(levelIndex, i, pyramid);
             
-            // Add sip indicator
-            const sipIndicator = document.createElement('div');
-            sipIndicator.className = 'sip-indicator';
-            sipIndicator.textContent = `${level.sips} slurk${level.sips > 1 ? 'er' : ''}`;
-            card.appendChild(sipIndicator);
+            // Add level number indicator instead of sip indicator
+            const levelIndicator = document.createElement('div');
+            levelIndicator.className = 'level-indicator';
+            levelIndicator.textContent = `${levelIndex + 1}`;
+            card.appendChild(levelIndicator);
             
-            // Add card content (back of card initially)
+            // Add card content (blank initially)
             const cardContent = document.createElement('div');
             cardContent.className = 'card-content';
-            cardContent.textContent = '?';
+            cardContent.textContent = '';
             card.appendChild(cardContent);
             
             row.appendChild(card);
@@ -348,13 +396,35 @@ function revealPyramidCard(card, position) {
 function showCardOnPyramid(card, position) {
     const pyramidCard = document.querySelector(`[data-position="${position}"]`);
     if (pyramidCard) {
+        // Create a stacked card element
+        const stackedCard = document.createElement('div');
+        stackedCard.className = 'stacked-card';
+        stackedCard.innerHTML = `${card.value}<br>${card.suit}`;
+        
+        // Position it slightly offset
+        stackedCard.style.position = 'absolute';
+        stackedCard.style.top = '5px';
+        stackedCard.style.left = '5px';
+        stackedCard.style.width = '100%';
+        stackedCard.style.height = '100%';
+        stackedCard.style.background = '#ffffff';
+        stackedCard.style.border = '2px solid #27ae60';
+        stackedCard.style.borderRadius = '8px';
+        stackedCard.style.display = 'flex';
+        stackedCard.style.flexDirection = 'column';
+        stackedCard.style.alignItems = 'center';
+        stackedCard.style.justifyContent = 'center';
+        stackedCard.style.fontSize = '0.8rem';
+        stackedCard.style.fontWeight = 'bold';
+        stackedCard.style.color = '#2c3e50';
+        stackedCard.style.zIndex = '10';
+        
+        // Make pyramid card relative positioned
+        pyramidCard.style.position = 'relative';
         pyramidCard.classList.add('has-played-card');
         
-        // Add played card indicator
-        const playedIndicator = document.createElement('div');
-        playedIndicator.className = 'played-card-indicator';
-        playedIndicator.textContent = '✓';
-        pyramidCard.appendChild(playedIndicator);
+        // Add the stacked card
+        pyramidCard.appendChild(stackedCard);
     }
 }
 
@@ -481,18 +551,41 @@ function showBusRouteInterface() {
     gameActions.innerHTML = `
         <div class="bus-route-interface">
             <h3>🚌 Bussruten!</h3>
-            <p>Klikk på pyramiden for å trekke kort. Unngå bildekort (A, J, Q, K) for å komme deg til toppen!</p>
+            <p>Klikk på kortene i pyramiden for å gå oppover! Unngå bildekort (A, J, Q, K) for å komme deg til toppen!</p>
             <div id="bus-route-level">
-                <strong>Nåværende nivå:</strong> <span id="current-bus-level">1 (1 slurk)</span>
+                <strong>Nåværende nivå:</strong> <span id="current-bus-level">1</span>
             </div>
-            <button id="draw-card-btn" class="game-btn">Trekk kort fra nivå 1</button>
+            <p><em>Klikk på et kort i nederste rad for å starte!</em></p>
         </div>
     `;
     
+    // Make pyramid cards clickable for bus route
+    makePyramidClickableForBusRoute();
     updateBusRouteLevel(0);
+}
+
+function makePyramidClickableForBusRoute() {
+    const pyramidCards = document.querySelectorAll('.pyramid-card');
     
-    // Add event listener for drawing cards
-    document.getElementById('draw-card-btn').addEventListener('click', drawBusRouteCard);
+    pyramidCards.forEach(card => {
+        const level = parseInt(card.dataset.level);
+        
+        // Start with only bottom row clickable
+        if (level === 0) {
+            card.classList.add('clickable-bus-route');
+            card.addEventListener('click', () => handleBusRouteCardClick(card));
+        } else {
+            card.classList.remove('clickable-bus-route');
+        }
+    });
+}
+
+function handleBusRouteCardClick(cardElement) {
+    const level = parseInt(cardElement.dataset.level);
+    const position = parseInt(cardElement.dataset.position);
+    
+    // Emit click to server
+    socket.emit('clickBusRouteCard', { level, position });
 }
 
 function updateBusRouteLevel(level) {
@@ -509,21 +602,26 @@ function updateBusRouteLevel(level) {
         return;
     }
     
-    const currentLevel = pyramidLevels[level];
     const currentLevelSpan = document.getElementById('current-bus-level');
-    const drawButton = document.getElementById('draw-card-btn');
-    
     if (currentLevelSpan) {
-        currentLevelSpan.textContent = `${level + 1} (${currentLevel.sips} slurk${currentLevel.sips > 1 ? 'er' : ''})`;
+        currentLevelSpan.textContent = `${level + 1}`;
     }
     
-    if (drawButton) {
-        drawButton.textContent = `Trekk kort fra nivå ${level + 1}`;
-        drawButton.onclick = () => drawBusRouteCard(level);
-    }
+    // Update clickable cards
+    const pyramidCards = document.querySelectorAll('.pyramid-card');
+    pyramidCards.forEach(card => {
+        const cardLevel = parseInt(card.dataset.level);
+        card.classList.remove('clickable-bus-route');
+        
+        if (cardLevel === level) {
+            card.classList.add('clickable-bus-route');
+        }
+    });
 }
 
 function drawBusRouteCard(level = 0) {
+    // This function is now replaced by handleBusRouteCardClick
+    // Keep for backwards compatibility but redirect to new system
     socket.emit('drawBusRouteCard', { level });
 }
 
@@ -653,7 +751,7 @@ function showNotification(message, type = 'info') {
     }, 4000);
 }
 
-// Add CSS for animations and additional styles
+// Add CSS for level indicators and stacked cards
 const additionalCSS = `
     @keyframes slideInRight {
         from {
@@ -677,6 +775,17 @@ const additionalCSS = `
         }
     }
     
+    .level-indicator {
+        position: absolute;
+        top: -25px;
+        background-color: #3498db;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+    
     .pyramid-card.revealed {
         background: #fff;
         border-color: #3498db;
@@ -688,25 +797,35 @@ const additionalCSS = `
     }
     
     .pyramid-card.has-played-card {
-        position: relative;
         border-color: #27ae60;
         background: #d5f4e6;
     }
     
-    .played-card-indicator {
-        position: absolute;
-        top: 5px;
-        right: 5px;
-        background: #27ae60;
-        color: white;
-        border-radius: 50%;
-        width: 20px;
-        height: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 12px;
-        font-weight: bold;
+    .stacked-card {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        animation: stackCard 0.3s ease;
+    }
+    
+    @keyframes stackCard {
+        from {
+            transform: scale(0.8) rotate(-5deg);
+            opacity: 0;
+        }
+        to {
+            transform: scale(1) rotate(0deg);
+            opacity: 1;
+        }
+    }
+    
+    .pyramid-card.clickable-bus-route {
+        cursor: pointer;
+        border-color: #f39c12;
+        box-shadow: 0 0 10px rgba(243, 156, 18, 0.5);
+    }
+    
+    .pyramid-card.clickable-bus-route:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 15px rgba(243, 156, 18, 0.7);
     }
 `;
 
