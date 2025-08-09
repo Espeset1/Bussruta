@@ -207,6 +207,9 @@ io.on('connection', (socket) => {
             
             // Player chooses who drinks
             socket.emit('chooseDrinker', { sips, cardPosition: room.currentCard });
+            
+            // Move to next card after drink assignment
+            // This will be handled after drink confirmation
         }
     });
 
@@ -287,7 +290,73 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Disconnect handling
+    // Manual next card (for testing)
+    socket.on('nextCard', () => {
+        const player = findPlayerInRoom(socket.id);
+        if (!player) return;
+        
+        const room = rooms.get(player.room);
+        if (room.gameState !== 'playing') return;
+        
+        room.currentCard++;
+        revealNextCard(room);
+    });
+    socket.on('drawBusRouteCard', ({ level }) => {
+        const player = findPlayerInRoom(socket.id);
+        if (!player) return;
+        
+        const room = rooms.get(player.room);
+        if (room.gameState !== 'busroute' || room.busRoutePlayer !== socket.id) return;
+        
+        // Get current level info
+        const pyramidLevel = room.pyramid[level];
+        if (!pyramidLevel) return;
+        
+        // Draw a random card (simplified)
+        const suits = ['♠', '♣', '♥', '♦'];
+        const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+        const randomSuit = suits[Math.floor(Math.random() * suits.length)];
+        const randomValue = values[Math.floor(Math.random() * values.length)];
+        const drawnCard = { suit: randomSuit, value: randomValue };
+        
+        // Check if it's a face card (A, J, Q, K)
+        const isFaceCard = ['A', 'J', 'Q', 'K'].includes(randomValue);
+        
+        if (isFaceCard) {
+            // Player must drink and restart
+            io.to(room.code).emit('busRouteFaceCard', {
+                card: drawnCard,
+                level: level,
+                sips: pyramidLevel.sips,
+                player: player.name
+            });
+            
+            // Reset to bottom of pyramid
+            setTimeout(() => {
+                io.to(socket.id).emit('busRouteRestart');
+            }, 2000);
+        } else {
+            // Continue to next level
+            io.to(room.code).emit('busRouteSuccess', {
+                card: drawnCard,
+                level: level,
+                player: player.name
+            });
+            
+            if (level >= room.pyramid.length - 1) {
+                // Player completed bus route!
+                room.gameState = 'finished';
+                io.to(room.code).emit('gameFinished', {
+                    winner: player.name
+                });
+            } else {
+                // Continue to next level
+                setTimeout(() => {
+                    io.to(socket.id).emit('continueToNextLevel', { nextLevel: level + 1 });
+                }, 1500);
+            }
+        }
+    });
     socket.on('disconnect', () => {
         console.log('Player disconnected:', socket.id);
         
@@ -340,6 +409,7 @@ function revealNextCard(room) {
         for (const [playerId, player] of room.players) {
             const remainingCards = room.playerHands.get(playerId).length;
             cardCounts.set(playerId, remainingCards);
+            room.cardCounts.set(playerId, remainingCards);
         }
         
         // Find player with most cards
@@ -355,15 +425,34 @@ function revealNextCard(room) {
             }
         }
         
-        if (busRoutePlayers.length === 1) {
-            room.busRoutePlayer = busRoutePlayers[0];
-            startBusRoute(room);
-        } else {
-            // Tie-breaker needed
-            io.to(room.code).emit('tieBreaker', {
-                players: busRoutePlayers.map(id => room.players.get(id).name)
-            });
-        }
+        // Notify about card counts
+        const cardCountsArray = Array.from(room.players.entries()).map(([id, player]) => ({
+            name: player.name,
+            cards: cardCounts.get(id)
+        }));
+        
+        io.to(room.code).emit('phaseOneComplete', { cardCounts: cardCountsArray });
+        
+        // Wait a moment then determine bus route player
+        setTimeout(() => {
+            if (busRoutePlayers.length === 1) {
+                room.busRoutePlayer = busRoutePlayers[0];
+                startBusRoute(room);
+            } else {
+                // Tie-breaker needed
+                const tiePlayerNames = busRoutePlayers.map(id => room.players.get(id).name);
+                io.to(room.code).emit('tieBreaker', {
+                    players: tiePlayerNames,
+                    maxCards: maxCards
+                });
+                
+                // For simplicity, pick first player in tie
+                setTimeout(() => {
+                    room.busRoutePlayer = busRoutePlayers[0];
+                    startBusRoute(room);
+                }, 3000);
+            }
+        }, 2000);
         
         return;
     }
@@ -375,6 +464,14 @@ function revealNextCard(room) {
         position: room.currentCard,
         pyramidLevel: getPyramidLevel(room.currentCard, room.pyramid)
     });
+    
+    // Auto-advance if no one can play after 10 seconds
+    setTimeout(() => {
+        if (room.gameState === 'playing' && room.currentCard < room.pyramidCards.length) {
+            room.currentCard++;
+            revealNextCard(room);
+        }
+    }, 10000);
 }
 
 function startBusRoute(room) {

@@ -97,6 +97,61 @@ function initializeSocket() {
     socket.on('busRouteStarted', ({ player, pyramid }) => {
         showNotification(`${player} må ta bussruten!`, 'warning');
         updateGameStatus(`${player} tar bussruten`);
+        
+        // If this player is taking the bus route, show bus route interface
+        if (player === currentPlayer.name) {
+            showBusRouteInterface();
+        }
+    });
+    
+    socket.on('startBusRoute', () => {
+        showBusRouteInterface();
+    });
+    
+    socket.on('busRouteFaceCard', ({ card, level, sips, player }) => {
+        showNotification(`${player} trakk ${card.value}${card.suit} - bildekort! Drikk ${sips} slurk${sips > 1 ? 'er' : ''} og start på nytt!`, 'warning');
+    });
+    
+    socket.on('busRouteSuccess', ({ card, level, player }) => {
+        showNotification(`${player} trakk ${card.value}${card.suit} - godt trukket!`, 'success');
+    });
+    
+    socket.on('busRouteRestart', () => {
+        showNotification('Start bussruten på nytt fra bunnen!', 'warning');
+        updateBusRouteLevel(0);
+    });
+    
+    socket.on('continueToNextLevel', ({ nextLevel }) => {
+        updateBusRouteLevel(nextLevel);
+    });
+    
+    socket.on('gameFinished', ({ winner }) => {
+        showNotification(`🎉 ${winner} fullførte bussruten og vant spillet!`, 'success');
+        updateGameStatus('Spill ferdig!');
+        setTimeout(() => {
+            if (confirm('Spillet er ferdig! Vil du starte et nytt spill?')) {
+                location.reload();
+            }
+        }, 3000);
+    });
+    
+    socket.on('phaseOneComplete', ({ cardCounts }) => {
+        showNotification('Fase 1 ferdig! Teller kort...', 'info');
+        
+        // Display card counts
+        let message = 'Kort på hånd:\n';
+        cardCounts.forEach(player => {
+            message += `${player.name}: ${player.cards} kort\n`;
+        });
+        
+        setTimeout(() => {
+            showNotification(message, 'info');
+        }, 1000);
+    });
+    
+    socket.on('tieBreaker', ({ players, maxCards }) => {
+        const playerList = players.join(' og ');
+        showNotification(`Uavgjort! ${playerList} har begge ${maxCards} kort. Velger tilfeldig...`, 'warning');
     });
     
     socket.on('error', (message) => {
@@ -116,6 +171,11 @@ function initializeEventListeners() {
     
     // Game actions
     document.getElementById('confirm-drink-btn').addEventListener('click', confirmDrink);
+    
+    // Test button for advancing cards
+    document.getElementById('next-card-btn').addEventListener('click', () => {
+        socket.emit('nextCard');
+    });
     
     // Enter key handling for inputs
     document.getElementById('player-name').addEventListener('keypress', handleEnterKey);
@@ -409,6 +469,62 @@ function updateDrinkProgress(confirmed, total) {
 function hideDrinkConfirmation() {
     document.getElementById('drink-confirmation').style.display = 'none';
     pendingDrinkConfirmation = null;
+}
+
+// Bus Route Interface
+function showBusRouteInterface() {
+    // Hide player hand section
+    document.querySelector('.player-hand-section').style.display = 'none';
+    
+    // Show bus route instructions
+    const gameActions = document.querySelector('.game-actions');
+    gameActions.innerHTML = `
+        <div class="bus-route-interface">
+            <h3>🚌 Bussruten!</h3>
+            <p>Klikk på pyramiden for å trekke kort. Unngå bildekort (A, J, Q, K) for å komme deg til toppen!</p>
+            <div id="bus-route-level">
+                <strong>Nåværende nivå:</strong> <span id="current-bus-level">1 (1 slurk)</span>
+            </div>
+            <button id="draw-card-btn" class="game-btn">Trekk kort fra nivå 1</button>
+        </div>
+    `;
+    
+    updateBusRouteLevel(0);
+    
+    // Add event listener for drawing cards
+    document.getElementById('draw-card-btn').addEventListener('click', drawBusRouteCard);
+}
+
+function updateBusRouteLevel(level) {
+    const pyramidLevels = [
+        { cards: 5, sips: 1 },
+        { cards: 4, sips: 2 },
+        { cards: 3, sips: 4 },
+        { cards: 2, sips: 6 },
+        { cards: 1, sips: 8 }
+    ];
+    
+    if (level >= pyramidLevels.length) {
+        // Game completed
+        return;
+    }
+    
+    const currentLevel = pyramidLevels[level];
+    const currentLevelSpan = document.getElementById('current-bus-level');
+    const drawButton = document.getElementById('draw-card-btn');
+    
+    if (currentLevelSpan) {
+        currentLevelSpan.textContent = `${level + 1} (${currentLevel.sips} slurk${currentLevel.sips > 1 ? 'er' : ''})`;
+    }
+    
+    if (drawButton) {
+        drawButton.textContent = `Trekk kort fra nivå ${level + 1}`;
+        drawButton.onclick = () => drawBusRouteCard(level);
+    }
+}
+
+function drawBusRouteCard(level = 0) {
+    socket.emit('drawBusRouteCard', { level });
 }
 
 // Keep original pyramid initialization for rules display
