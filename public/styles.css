@@ -1,4 +1,267 @@
-/* Reset and Base Styles */
+/* Lobby Styles */
+.lobby-section {
+    text-align: center;
+    padding: 2rem 0;
+}
+
+.lobby-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.join-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.create-room, .join-room {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.create-room h3, .join-room h3 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+}
+
+.lobby-container input {
+    width: 100%;
+    padding: 0.75rem;
+    margin: 0.5rem 0;
+    border: 2px solid #ecf0f1;
+    border-radius: 6px;
+    font-size: 1rem;
+}
+
+.lobby-container input:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+.game-btn {
+    width: 100%;
+    padding: 0.75rem 1.5rem;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    margin-top: 1rem;
+}
+
+.game-btn:hover {
+    background-color: #2980b9;
+}
+
+.game-btn:disabled {
+    background-color: #95a5a6;
+    cursor: not-allowed;
+}
+
+/* Game Section Styles */
+.game-section {
+    padding: 2rem 0;
+}
+
+.players-list {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin: 1rem 0;
+}
+
+.players-list h3 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+}
+
+#players-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.player-card {
+    background: #ecf0f1;
+    padding: 1rem;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.player-card.current-player {
+    background: #3498db;
+    color: white;
+}
+
+/* Playing Section Styles */
+.playing-section {
+    padding: 2rem 0;
+}
+
+.game-status-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+    background: white;
+    padding: 1rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.status-item {
+    text-align: center;
+    padding: 0.5rem;
+}
+
+/* Player Hand Styles */
+.player-hand-section {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin: 1rem 0;
+}
+
+.player-hand {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+.hand-card {
+    width: 60px;
+    height: 84px;
+    background: white;
+    border: 2px solid #2c3e50;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+.hand-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+.hand-card.playable {
+    border-color: #27ae60;
+    background: #d5f4e6;
+}
+
+.hand-card.played {
+    opacity: 0.5;
+    transform: none;
+    cursor: not-allowed;
+}
+
+/* Game Actions Styles */
+.game-actions {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin: 1rem 0;
+}
+
+.drink-confirmation {
+    text-align: center;
+    padding: 1rem;
+    background: #f39c12;
+    border-radius: 8px;
+    color: white;
+}
+
+.drink-btn {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 6px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 1rem;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.choose-drinker {
+    text-align: center;
+    padding: 1rem;
+    background: #3498db;
+    border-radius: 8px;
+    color: white;
+}
+
+#drinker-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+.drinker-btn {
+    background: white;
+    color: #3498db;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.drinker-btn:hover {
+    background: #ecf0f1;
+}
+
+#drink-progress {
+    margin-top: 1rem;
+    font-weight: bold;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .join-options {
+        grid-template-columns: 1fr;
+    }
+    
+    .game-status-bar {
+        grid-template-columns: 1fr;
+    }
+    
+    .player-hand {
+        gap: 0.25rem;
+    }
+    
+    .hand-card {
+        width: 50px;
+        height: 70px;
+        font-size: 0.6rem;
+    }
+}
 * {
     margin: 0;
     padding: 0;
