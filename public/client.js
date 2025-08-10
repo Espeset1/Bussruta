@@ -48,6 +48,7 @@ function initializeSocket() {
         showPlayingSection();
         initializeGamePyramid(pyramid);
         updatePlayersList(players);
+        updateOtherPlayersSidebar(players);
         updateGameStatus('Spillet startet!');
         
         // Show/hide next card button based on if user is host
@@ -74,6 +75,11 @@ function initializeSocket() {
         showCardOnPyramid(card, position, stackCount);
         showNotification(`${playerName} spilte ${card.value}${card.suit}!`, 'success');
         updateHandCount();
+    });
+    
+    socket.on('playersUpdated', (players) => {
+        allPlayers = players;
+        updateOtherPlayersSidebar(players);
     });
     
     socket.on('chooseDrinker', ({ sips, cardPosition }) => {
@@ -310,9 +316,9 @@ function updatePlayersList(players) {
     
     document.getElementById('player-count').textContent = players.length;
     
-    // Show start button if this is the room creator
+    // Show start button for any player in the room
     const startBtn = document.getElementById('start-game-btn');
-    if (players.length >= 1 && players[0].id === currentPlayer.id) {
+    if (players.length >= 1) {
         startBtn.style.display = 'block';
     } else {
         startBtn.style.display = 'none';
@@ -321,6 +327,46 @@ function updatePlayersList(players) {
 
 function updateGameStatus(status) {
     document.getElementById('game-status').textContent = status;
+}
+
+function updateOtherPlayersSidebar(players) {
+    const sidebarContainer = document.getElementById('other-players-list');
+    if (!sidebarContainer) return; // Element doesn't exist if not in playing section
+    
+    // Filter out current player
+    const otherPlayers = players.filter(player => player.id !== currentPlayer.id);
+    
+    sidebarContainer.innerHTML = '';
+    
+    otherPlayers.forEach(player => {
+        const playerCard = document.createElement('div');
+        playerCard.className = 'other-player-card';
+        
+        const playerName = document.createElement('div');
+        playerName.className = 'other-player-name';
+        playerName.textContent = player.name;
+        
+        const cardsDisplay = document.createElement('div');
+        cardsDisplay.className = 'player-cards-display';
+        
+        // Show card backs for the number of cards the player has
+        const cardCount = player.hand ? player.hand.length : 0;
+        for (let i = 0; i < Math.min(cardCount, 15); i++) { // Cap at 15 to avoid overflow
+            const cardBack = document.createElement('div');
+            cardBack.className = 'card-back';
+            cardsDisplay.appendChild(cardBack);
+        }
+        
+        const cardsCountText = document.createElement('div');
+        cardsCountText.className = 'cards-count';
+        cardsCountText.textContent = `${cardCount} kort`;
+        
+        playerCard.appendChild(playerName);
+        playerCard.appendChild(cardsDisplay);
+        playerCard.appendChild(cardsCountText);
+        
+        sidebarContainer.appendChild(playerCard);
+    });
 }
 
 function updateHandCount() {

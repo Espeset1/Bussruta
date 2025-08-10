@@ -241,6 +241,130 @@
     padding: 3rem 0;
 }
 
+.game-layout {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+}
+
+.main-game-area {
+    flex: 1;
+}
+
+.players-sidebar {
+    width: 250px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(15px);
+    padding: 1.5rem;
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15), 
+                0 3px 8px rgba(0,0,0,0.1),
+                inset 0 1px 0 rgba(255,255,255,0.3);
+    position: sticky;
+    top: 2rem;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.players-sidebar h3 {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+    text-align: center;
+}
+
+.other-player-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 1rem;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.other-player-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+}
+
+.other-player-name {
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+    text-align: center;
+}
+
+.player-cards-display {
+    display: flex;
+    justify-content: center;
+    gap: 3px;
+    flex-wrap: wrap;
+}
+
+.card-back {
+    width: 20px;
+    height: 28px;
+    background: linear-gradient(145deg, #667eea 0%, #764ba2 100%);
+    border: 1px solid #444;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.6rem;
+    font-weight: bold;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    position: relative;
+}
+
+.card-back::before {
+    content: '🃏';
+    font-size: 0.7rem;
+}
+
+.cards-count {
+    text-align: center;
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+@media (max-width: 768px) {
+    .game-layout {
+        flex-direction: column;
+    }
+    
+    .players-sidebar {
+        width: 100%;
+        position: static;
+        max-height: none;
+    }
+    
+    .other-player-card {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .other-player-name {
+        margin-bottom: 0;
+        flex: 1;
+        text-align: left;
+    }
+    
+    .player-cards-display {
+        flex: none;
+    }
+    
+    .cards-count {
+        margin-top: 0;
+        margin-left: 0.5rem;
+    }
+}
+
 .game-status-bar {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -768,6 +892,40 @@ main {
     filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.1));
     position: relative;
     z-index: 2;
+    font-family: 'Comic Sans MS', cursive, sans-serif;
+    font-weight: bold;
+    letter-spacing: 3px;
+    transform: perspective(500px) rotateX(15deg);
+}
+
+.game-header h1::before {
+    content: '🚌';
+    position: absolute;
+    left: -70px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 3rem;
+    animation: busHop 2s ease-in-out infinite;
+}
+
+.game-header h1::after {
+    content: '🎉';
+    position: absolute;
+    right: -70px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 3rem;
+    animation: sparkle 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes busHop {
+    0%, 100% { transform: translateY(-50%) translateX(0px); }
+    50% { transform: translateY(-60%) translateX(10px); }
+}
+
+@keyframes sparkle {
+    0% { transform: translateY(-50%) rotate(0deg) scale(1); }
+    100% { transform: translateY(-50%) rotate(15deg) scale(1.2); }
 }
 
 .game-info {
