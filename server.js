@@ -216,6 +216,9 @@ io.on('connection', (socket) => {
                 stackCount: room.playedCards.get(room.currentCard).length
             });
             
+            // Send updated player data so others can see card count changes
+            io.to(player.room).emit('playersUpdated', Array.from(room.players.values()));
+            
             // Send updated activity log
             io.to(player.room).emit('activityLogUpdate', room.activityLog);
             
