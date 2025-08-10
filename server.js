@@ -128,10 +128,6 @@ io.on('connection', (socket) => {
         if (!player) return;
         
         const room = rooms.get(player.room);
-        if (room.players.size < 2) {
-            socket.emit('error', 'Need at least 2 players to start');
-            return;
-        }
         
         // Setup pyramid cards
         const totalPyramidCards = room.pyramid.reduce((sum, level) => sum + level.cards, 0);
