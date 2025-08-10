@@ -310,9 +310,9 @@ function updatePlayersList(players) {
     
     document.getElementById('player-count').textContent = players.length;
     
-    // Show start button if we have enough players and this is the room creator
+    // Show start button if this is the room creator
     const startBtn = document.getElementById('start-game-btn');
-    if (players.length >= 2 && players[0].id === currentPlayer.id) {
+    if (players.length >= 1 && players[0].id === currentPlayer.id) {
         startBtn.style.display = 'block';
     } else {
         startBtn.style.display = 'none';
