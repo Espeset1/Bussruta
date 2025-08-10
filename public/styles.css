@@ -1608,3 +1608,73 @@ footer p {
     border: 2px solid rgba(255,255,255,0.2);
     backdrop-filter: blur(5px);
 }
+
+/* Card Selection Interface */
+.card-selection {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    border: 2px solid #3498db;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.card-selection p {
+    text-align: center;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 1rem;
+}
+
+.selectable-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.selectable-card {
+    background: white;
+    border: 2px solid #bdc3c7;
+    border-radius: 8px;
+    padding: 0.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: bold;
+    color: #2c3e50;
+    min-width: 50px;
+    text-align: center;
+    user-select: none;
+}
+
+.selectable-card:hover {
+    border-color: #3498db;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.selectable-card.selected {
+    border-color: #27ae60;
+    background: linear-gradient(135deg, #a8e6cf, #88d8a3);
+    color: #27ae60;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+}
+
+.card-selection-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.game-btn.secondary {
+    background: #95a5a6;
+    color: white;
+}
+
+.game-btn.secondary:hover {
+    background: #7f8c8d;
+}
+}

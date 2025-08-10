@@ -224,6 +224,12 @@ function initializeEventListeners() {
     // Game actions
     document.getElementById('confirm-drink-btn').addEventListener('click', confirmDrink);
     
+    // Card selection actions
+    document.getElementById('play-selected-cards-btn').addEventListener('click', () => {
+        playSelectedCards();
+    });
+    document.getElementById('cancel-card-selection-btn').addEventListener('click', hideCardSelection);
+    
     // Celebration modal
     document.getElementById('celebration-close').addEventListener('click', closeCelebrationModal);
     
@@ -542,15 +548,94 @@ function playCard(cardId) {
         return;
     }
     
-    socket.emit('playCard', { cardId });
+    // Find the clicked card and current pyramid card value
+    const clickedCard = playerHand.find(c => c.id === cardId);
+    if (!clickedCard) return;
     
-    // Remove card from hand
-    const cardIndex = playerHand.findIndex(c => c.id === cardId);
-    if (cardIndex !== -1) {
-        playerHand.splice(cardIndex, 1);
-        updatePlayerHand();
-        updateHandCount();
+    // Find all matching cards in hand
+    const matchingCards = playerHand.filter(card => card.value === clickedCard.value);
+    
+    // If player has multiple matching cards, show selection interface
+    if (matchingCards.length > 1) {
+        showCardSelection(matchingCards);
+    } else {
+        // Play single card immediately
+        playSelectedCards([cardId]);
     }
+}
+
+function showCardSelection(matchingCards) {
+    const cardSelection = document.getElementById('card-selection');
+    const message = document.getElementById('card-selection-message');
+    const selectableCardsContainer = document.getElementById('selectable-cards');
+    
+    message.textContent = `Du har ${matchingCards.length} kort som matcher! Velg hvilke du vil spille:`;
+    selectableCardsContainer.innerHTML = '';
+    
+    // Create selectable card elements
+    matchingCards.forEach(card => {
+        const cardElement = document.createElement('div');
+        cardElement.className = 'selectable-card';
+        cardElement.dataset.cardId = card.id;
+        cardElement.innerHTML = `${card.value}<br>${card.suit}`;
+        
+        cardElement.addEventListener('click', () => {
+            cardElement.classList.toggle('selected');
+            updatePlaySelectedButton();
+        });
+        
+        selectableCardsContainer.appendChild(cardElement);
+    });
+    
+    cardSelection.style.display = 'block';
+    updatePlaySelectedButton();
+}
+
+function updatePlaySelectedButton() {
+    const selectedCards = document.querySelectorAll('.selectable-card.selected');
+    const playButton = document.getElementById('play-selected-cards-btn');
+    
+    if (selectedCards.length > 0) {
+        playButton.textContent = `Spill ${selectedCards.length} kort`;
+        playButton.disabled = false;
+    } else {
+        playButton.textContent = 'Velg kort å spille';
+        playButton.disabled = true;
+    }
+}
+
+function hideCardSelection() {
+    document.getElementById('card-selection').style.display = 'none';
+}
+
+function playSelectedCards(cardIds) {
+    // If no cardIds provided, get them from selected cards
+    if (!cardIds) {
+        const selectedElements = document.querySelectorAll('.selectable-card.selected');
+        cardIds = Array.from(selectedElements).map(el => el.dataset.cardId);
+    }
+    
+    if (cardIds.length === 0) {
+        showNotification('Velg minst ett kort å spille', 'error');
+        return;
+    }
+    
+    // Hide card selection interface
+    hideCardSelection();
+    
+    // Send multiple cards to server
+    socket.emit('playCards', { cardIds });
+    
+    // Remove cards from hand locally
+    cardIds.forEach(cardId => {
+        const cardIndex = playerHand.findIndex(c => c.id === cardId);
+        if (cardIndex !== -1) {
+            playerHand.splice(cardIndex, 1);
+        }
+    });
+    
+    updatePlayerHand();
+    updateHandCount();
 }
 
 function showChooseDrinker(sips) {

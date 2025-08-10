@@ -161,70 +161,16 @@ io.on('connection', (socket) => {
         revealNextCard(room);
     });
 
-    // Play card
+    // Play card (backward compatibility - single card)
     socket.on('playCard', ({ cardId }) => {
-        const player = findPlayerInRoom(socket.id);
-        if (!player) return;
-        
-        const room = rooms.get(player.room);
-        if (room.gameState !== 'playing') return;
-        
-        const playerHand = room.playerHands.get(socket.id);
-        const cardIndex = playerHand.findIndex(card => card.id === cardId);
-        
-        if (cardIndex === -1) return; // Card not in hand
-        
-        const currentPyramidCard = room.pyramidCards[room.currentCard];
-        const playedCard = playerHand[cardIndex];
-        
-        // Check if cards match
-        if (playedCard.value === currentPyramidCard.value) {
-            // Remove card from hand
-            playerHand.splice(cardIndex, 1);
-            player.cardsPlayed++;
-            
-            // Add to played cards - support multiple cards per position
-            if (!room.playedCards.has(room.currentCard)) {
-                room.playedCards.set(room.currentCard, []);
-            }
-            room.playedCards.get(room.currentCard).push({
-                card: playedCard,
-                playerId: socket.id,
-                playerName: player.name
-            });
-            
-            // Calculate sips based on pyramid level
-            const pyramidLevel = getPyramidLevel(room.currentCard, room.pyramid);
-            const sips = pyramidLevel.sips;
-            
-            // Add to activity log
-            room.activityLog.push({
-                type: 'card_played',
-                timestamp: new Date().toISOString(),
-                player: player.name,
-                card: playedCard,
-                position: room.currentCard,
-                sips: sips
-            });
-            
-            io.to(player.room).emit('cardPlayed', {
-                playerId: socket.id,
-                playerName: player.name,
-                card: playedCard,
-                position: room.currentCard,
-                sips: sips,
-                stackCount: room.playedCards.get(room.currentCard).length
-            });
-            
-            // Send updated player data so others can see card count changes
-            io.to(player.room).emit('playersUpdated', Array.from(room.players.values()));
-            
-            // Send updated activity log
-            io.to(player.room).emit('activityLogUpdate', room.activityLog);
-            
-            // Player chooses who drinks
-            socket.emit('chooseDrinker', { sips, cardPosition: room.currentCard });
-        }
+        // Use the same logic as playCards but with a single card
+        const cardIds = [cardId];
+        handlePlayCards(socket, cardIds);
+    });
+
+    // Play multiple cards
+    socket.on('playCards', ({ cardIds }) => {
+        handlePlayCards(socket, cardIds);
     });
 
     // Assign drinks
@@ -599,6 +545,96 @@ function startBusRoute(room) {
     
     // Start bus route for the designated player
     io.to(room.busRoutePlayer).emit('startBusRoute');
+}
+
+// Helper function to handle playing one or more cards
+function handlePlayCards(socket, cardIds) {
+    const player = findPlayerInRoom(socket.id);
+    if (!player) return;
+    
+    const room = rooms.get(player.room);
+    if (room.gameState !== 'playing') return;
+    
+    const playerHand = room.playerHands.get(socket.id);
+    const currentPyramidCard = room.pyramidCards[room.currentCard];
+    
+    // Validate all cards exist and match
+    const cardsToPlay = [];
+    for (const cardId of cardIds) {
+        const cardIndex = playerHand.findIndex(card => card.id === cardId);
+        if (cardIndex === -1) return; // Card not in hand
+        
+        const card = playerHand[cardIndex];
+        if (card.value !== currentPyramidCard.value) return; // Card doesn't match
+        
+        cardsToPlay.push({ card, index: cardIndex });
+    }
+    
+    if (cardsToPlay.length === 0) return;
+    
+    // Remove cards from hand (in reverse order to maintain indices)
+    cardsToPlay.sort((a, b) => b.index - a.index);
+    cardsToPlay.forEach(({ index }) => {
+        playerHand.splice(index, 1);
+        player.cardsPlayed++;
+    });
+    
+    // Add all cards to played cards
+    if (!room.playedCards.has(room.currentCard)) {
+        room.playedCards.set(room.currentCard, []);
+    }
+    
+    cardsToPlay.forEach(({ card }) => {
+        room.playedCards.get(room.currentCard).push({
+            card: card,
+            playerId: socket.id,
+            playerName: player.name
+        });
+    });
+    
+    // Calculate sips based on pyramid level and number of cards
+    const pyramidLevel = getPyramidLevel(room.currentCard, room.pyramid);
+    const totalSips = pyramidLevel.sips * cardsToPlay.length;
+    
+    // Add to activity log
+    const logType = cardsToPlay.length === 1 ? 'card_played' : 'multiple_cards_played';
+    const logEntry = {
+        type: logType,
+        timestamp: new Date().toISOString(),
+        player: player.name,
+        position: room.currentCard,
+        sips: totalSips
+    };
+    
+    if (cardsToPlay.length === 1) {
+        logEntry.card = cardsToPlay[0].card;
+    } else {
+        logEntry.cards = cardsToPlay.map(c => c.card);
+        logEntry.cardCount = cardsToPlay.length;
+    }
+    
+    room.activityLog.push(logEntry);
+    
+    // Emit events for each card played
+    cardsToPlay.forEach(({ card }, index) => {
+        io.to(player.room).emit('cardPlayed', {
+            playerId: socket.id,
+            playerName: player.name,
+            card: card,
+            position: room.currentCard,
+            sips: pyramidLevel.sips,
+            stackCount: room.playedCards.get(room.currentCard).length - cardsToPlay.length + index + 1
+        });
+    });
+    
+    // Send updated player data
+    io.to(player.room).emit('playersUpdated', Array.from(room.players.values()));
+    
+    // Send updated activity log
+    io.to(player.room).emit('activityLogUpdate', room.activityLog);
+    
+    // Player chooses who drinks for total sips
+    socket.emit('chooseDrinker', { sips: totalSips, cardPosition: room.currentCard });
 }
 
 const PORT = process.env.PORT || 3000;
