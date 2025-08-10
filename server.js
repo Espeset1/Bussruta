@@ -62,10 +62,11 @@ function createRoom(roomCode) {
         currentRound: 0,
         currentCard: 0,
         playerHands: new Map(),
-        playedCards: new Map(), // track which cards have been played on pyramid
+        playedCards: new Map(), // track which cards have been played on pyramid - now supports multiple cards per position
         drinkConfirmations: new Map(), // track pending drink confirmations
         busRoutePlayer: null,
-        cardCounts: new Map()
+        cardCounts: new Map(),
+        activityLog: [] // track all game events
     };
 }
 
@@ -186,8 +187,11 @@ io.on('connection', (socket) => {
             playerHand.splice(cardIndex, 1);
             player.cardsPlayed++;
             
-            // Add to played cards
-            room.playedCards.set(room.currentCard, {
+            // Add to played cards - support multiple cards per position
+            if (!room.playedCards.has(room.currentCard)) {
+                room.playedCards.set(room.currentCard, []);
+            }
+            room.playedCards.get(room.currentCard).push({
                 card: playedCard,
                 playerId: socket.id,
                 playerName: player.name
@@ -197,19 +201,30 @@ io.on('connection', (socket) => {
             const pyramidLevel = getPyramidLevel(room.currentCard, room.pyramid);
             const sips = pyramidLevel.sips;
             
-            io.to(player.room).emit('cardPlayed', {
-                playerId: socket.id,
-                playerName: player.name,
+            // Add to activity log
+            room.activityLog.push({
+                type: 'card_played',
+                timestamp: new Date().toISOString(),
+                player: player.name,
                 card: playedCard,
                 position: room.currentCard,
                 sips: sips
             });
             
+            io.to(player.room).emit('cardPlayed', {
+                playerId: socket.id,
+                playerName: player.name,
+                card: playedCard,
+                position: room.currentCard,
+                sips: sips,
+                stackCount: room.playedCards.get(room.currentCard).length
+            });
+            
+            // Send updated activity log
+            io.to(player.room).emit('activityLogUpdate', room.activityLog);
+            
             // Player chooses who drinks
             socket.emit('chooseDrinker', { sips, cardPosition: room.currentCard });
-            
-            // Move to next card after drink assignment
-            // This will be handled after drink confirmation
         }
     });
 
@@ -235,6 +250,16 @@ io.on('connection', (socket) => {
         
         if (!targetPlayer) return;
         
+        // Add to activity log
+        room.activityLog.push({
+            type: 'drink_assigned',
+            timestamp: new Date().toISOString(),
+            from: player.name,
+            to: targetPlayer.name,
+            sips: sips,
+            cardPosition: cardPosition
+        });
+        
         // Create drink confirmation
         const confirmationId = uuidv4();
         room.drinkConfirmations.set(confirmationId, {
@@ -256,6 +281,9 @@ io.on('connection', (socket) => {
             to: targetPlayer.name,
             sips
         });
+        
+        // Send updated activity log
+        io.to(player.room).emit('activityLogUpdate', room.activityLog);
     });
 
     // Confirm drink
@@ -342,12 +370,26 @@ io.on('connection', (socket) => {
         
         if (isFaceCard) {
             // Player must drink and restart - shuffle pyramid
+            
+            // Add to activity log
+            room.activityLog.push({
+                type: 'bus_route_face_card',
+                timestamp: new Date().toISOString(),
+                player: player.name,
+                card: drawnCard,
+                level: level,
+                sips: pyramidLevel.sips
+            });
+            
             io.to(room.code).emit('busRouteFaceCard', {
                 card: drawnCard,
                 level: level,
                 sips: pyramidLevel.sips,
                 player: player.name
             });
+            
+            // Send updated activity log
+            io.to(room.code).emit('activityLogUpdate', room.activityLog);
             
             // Shuffle and reset pyramid
             setTimeout(() => {
@@ -356,18 +398,45 @@ io.on('connection', (socket) => {
             }, 2000);
         } else {
             // Continue to next level
+            
+            // Add to activity log
+            room.activityLog.push({
+                type: 'bus_route_success',
+                timestamp: new Date().toISOString(),
+                player: player.name,
+                card: drawnCard,
+                level: level
+            });
+            
             io.to(room.code).emit('busRouteSuccess', {
                 card: drawnCard,
                 level: level,
                 player: player.name
             });
             
+            // Send updated activity log
+            io.to(room.code).emit('activityLogUpdate', room.activityLog);
+            
             if (level >= room.pyramid.length - 1) {
                 // Player completed bus route!
                 room.gameState = 'finished';
+                
+                // Add to activity log
+                room.activityLog.push({
+                    type: 'bus_route_completed',
+                    timestamp: new Date().toISOString(),
+                    player: player.name
+                });
+                
                 io.to(room.code).emit('gameFinished', {
                     winner: player.name
                 });
+                
+                // Send celebration to the winner
+                io.to(socket.id).emit('showCelebration');
+                
+                // Send updated activity log
+                io.to(room.code).emit('activityLogUpdate', room.activityLog);
             } else {
                 // Continue to next level
                 setTimeout(() => {
