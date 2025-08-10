@@ -1608,3 +1608,141 @@ footer p {
     border: 2px solid rgba(255,255,255,0.2);
     backdrop-filter: blur(5px);
 }
+
+/* Card Selection Modal */
+.card-selection-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    backdrop-filter: blur(5px);
+}
+
+.card-selection-content {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 2rem;
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    text-align: center;
+}
+
+.card-selection-content h3 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+}
+
+.card-selection-content p {
+    color: #555;
+    margin-bottom: 1.5rem;
+    font-size: 1.1rem;
+}
+
+.selectable-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: rgba(52, 73, 94, 0.1);
+    border-radius: 15px;
+}
+
+.selectable-card {
+    width: 80px;
+    height: 110px;
+    background: white;
+    border: 3px solid #ddd;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: #2c3e50;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.selectable-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    border-color: #3498db;
+}
+
+.selectable-card.selected {
+    border-color: #27ae60;
+    background: linear-gradient(135deg, #2ecc71, #27ae60);
+    color: white;
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 8px 20px rgba(46, 204, 113, 0.4);
+}
+
+.selection-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 1.5rem;
+}
+
+.selection-actions .game-btn {
+    min-width: 150px;
+    padding: 0.8rem 1.5rem;
+    font-size: 1rem;
+}
+
+.selection-actions .game-btn.secondary {
+    background: #95a5a6;
+    border-color: #7f8c8d;
+}
+
+.selection-actions .game-btn.secondary:hover {
+    background: #7f8c8d;
+}
+
+.selection-actions .game-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+@media (max-width: 768px) {
+    .card-selection-content {
+        width: 95%;
+        padding: 1.5rem;
+    }
+    
+    .selectable-cards {
+        gap: 0.8rem;
+    }
+    
+    .selectable-card {
+        width: 70px;
+        height: 95px;
+        font-size: 0.8rem;
+    }
+    
+    .selection-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .selection-actions .game-btn {
+        min-width: 200px;
+    }
+}
+}
