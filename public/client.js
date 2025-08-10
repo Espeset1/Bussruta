@@ -70,8 +70,8 @@ function initializeSocket() {
         showNotification(`Nytt kort: ${card.value}${card.suit}`, 'info');
     });
     
-    socket.on('cardPlayed', ({ playerId, playerName, card, position, sips }) => {
-        showCardOnPyramid(card, position);
+    socket.on('cardPlayed', ({ playerId, playerName, card, position, sips, stackCount }) => {
+        showCardOnPyramid(card, position, stackCount);
         showNotification(`${playerName} spilte ${card.value}${card.suit}!`, 'success');
         updateHandCount();
     });
@@ -173,6 +173,14 @@ function initializeSocket() {
         }, 3000);
     });
     
+    socket.on('showCelebration', () => {
+        showCelebrationModal();
+    });
+    
+    socket.on('activityLogUpdate', (activityLog) => {
+        updateActivityLog(activityLog);
+    });
+    
     socket.on('phaseOneComplete', ({ cardCounts }) => {
         showNotification('Fase 1 ferdig! Teller kort...', 'info');
         
@@ -209,6 +217,9 @@ function initializeEventListeners() {
     
     // Game actions
     document.getElementById('confirm-drink-btn').addEventListener('click', confirmDrink);
+    
+    // Celebration modal
+    document.getElementById('celebration-close').addEventListener('click', closeCelebrationModal);
     
     // Test button for advancing cards
     document.getElementById('next-card-btn').addEventListener('click', () => {
@@ -393,38 +404,59 @@ function revealPyramidCard(card, position) {
     }
 }
 
-function showCardOnPyramid(card, position) {
+function showCardOnPyramid(card, position, stackCount = 1) {
     const pyramidCard = document.querySelector(`[data-position="${position}"]`);
     if (pyramidCard) {
-        // Create a stacked card element
-        const stackedCard = document.createElement('div');
-        stackedCard.className = 'stacked-card';
-        stackedCard.innerHTML = `${card.value}<br>${card.suit}`;
+        // Update or add stack indicator
+        updateStackIndicator(pyramidCard, stackCount);
         
-        // Position it slightly offset
-        stackedCard.style.position = 'absolute';
-        stackedCard.style.top = '5px';
-        stackedCard.style.left = '5px';
-        stackedCard.style.width = '100%';
-        stackedCard.style.height = '100%';
-        stackedCard.style.background = '#ffffff';
-        stackedCard.style.border = '2px solid #27ae60';
-        stackedCard.style.borderRadius = '8px';
-        stackedCard.style.display = 'flex';
-        stackedCard.style.flexDirection = 'column';
-        stackedCard.style.alignItems = 'center';
-        stackedCard.style.justifyContent = 'center';
-        stackedCard.style.fontSize = '0.8rem';
-        stackedCard.style.fontWeight = 'bold';
-        stackedCard.style.color = '#2c3e50';
-        stackedCard.style.zIndex = '10';
-        
-        // Make pyramid card relative positioned
-        pyramidCard.style.position = 'relative';
-        pyramidCard.classList.add('has-played-card');
-        
-        // Add the stacked card
-        pyramidCard.appendChild(stackedCard);
+        // Create a stacked card element only for the first card
+        if (stackCount === 1) {
+            const stackedCard = document.createElement('div');
+            stackedCard.className = 'stacked-card';
+            stackedCard.innerHTML = `${card.value}<br>${card.suit}`;
+            
+            // Position it slightly offset
+            stackedCard.style.position = 'absolute';
+            stackedCard.style.top = '5px';
+            stackedCard.style.left = '5px';
+            stackedCard.style.width = '100%';
+            stackedCard.style.height = '100%';
+            stackedCard.style.background = '#ffffff';
+            stackedCard.style.border = '2px solid #27ae60';
+            stackedCard.style.borderRadius = '8px';
+            stackedCard.style.display = 'flex';
+            stackedCard.style.flexDirection = 'column';
+            stackedCard.style.alignItems = 'center';
+            stackedCard.style.justifyContent = 'center';
+            stackedCard.style.fontSize = '0.8rem';
+            stackedCard.style.fontWeight = 'bold';
+            stackedCard.style.color = '#2c3e50';
+            stackedCard.style.zIndex = '10';
+            
+            // Make pyramid card relative positioned
+            pyramidCard.style.position = 'relative';
+            pyramidCard.classList.add('has-played-card');
+            
+            // Add the stacked card
+            pyramidCard.appendChild(stackedCard);
+        }
+    }
+}
+
+function updateStackIndicator(pyramidCard, stackCount) {
+    // Remove existing indicator
+    const existingIndicator = pyramidCard.querySelector('.card-stack-indicator');
+    if (existingIndicator) {
+        existingIndicator.remove();
+    }
+    
+    // Add new indicator if more than 1 card
+    if (stackCount > 1) {
+        const indicator = document.createElement('div');
+        indicator.className = `card-stack-indicator stack-${Math.min(stackCount, 4)}`;
+        indicator.textContent = stackCount;
+        pyramidCard.appendChild(indicator);
     }
 }
 
@@ -828,6 +860,70 @@ const additionalCSS = `
         box-shadow: 0 4px 15px rgba(243, 156, 18, 0.7);
     }
 `;
+
+// Activity log functions
+function updateActivityLog(activityLog) {
+    const logContainer = document.getElementById('activity-log');
+    if (!logContainer) return;
+    
+    logContainer.innerHTML = '';
+    
+    // Show last 10 entries
+    const recentEntries = activityLog.slice(-10);
+    
+    recentEntries.forEach(entry => {
+        const logEntry = document.createElement('div');
+        logEntry.className = `activity-log-entry ${entry.type.replace('_', '-')}`;
+        
+        const timestamp = new Date(entry.timestamp).toLocaleTimeString();
+        
+        let message = '';
+        switch (entry.type) {
+            case 'card_played':
+                message = `${entry.player} spilte ${entry.card.value}${entry.card.suit}`;
+                break;
+            case 'drink_assigned':
+                message = `${entry.from} ga ${entry.sips} slurk${entry.sips > 1 ? 'er' : ''} til ${entry.to}`;
+                break;
+            case 'bus_route_face_card':
+                message = `${entry.player} trakk ${entry.card.value}${entry.card.suit} - bildekort!`;
+                break;
+            case 'bus_route_success':
+                message = `${entry.player} trakk ${entry.card.value}${entry.card.suit} - godt trukket!`;
+                break;
+            case 'bus_route_completed':
+                message = `🎉 ${entry.player} fullførte bussruten!`;
+                break;
+            default:
+                message = 'Ukjent hendelse';
+        }
+        
+        logEntry.innerHTML = `
+            ${message}
+            <span class="timestamp">${timestamp}</span>
+        `;
+        
+        logContainer.appendChild(logEntry);
+    });
+    
+    // Scroll to bottom
+    logContainer.scrollTop = logContainer.scrollHeight;
+}
+
+// Celebration modal functions
+function showCelebrationModal() {
+    const modal = document.getElementById('celebration-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+}
+
+function closeCelebrationModal() {
+    const modal = document.getElementById('celebration-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
 
 const style = document.createElement('style');
 style.textContent = additionalCSS;
