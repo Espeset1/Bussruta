@@ -71,9 +71,24 @@ function initializeSocket() {
         showNotification(`Nytt kort: ${card.value}${card.suit}`, 'info');
     });
     
-    socket.on('cardPlayed', ({ playerId, playerName, card, position, sips, stackCount }) => {
-        showCardOnPyramid(card, position, stackCount);
-        showNotification(`${playerName} spilte ${card.value}${card.suit}!`, 'success');
+    socket.on('cardPlayed', ({ playerId, playerName, card, cards, cardsCount, position, sips, stackCount }) => {
+        // Handle both legacy single card format and new multiple cards format
+        const playedCards = cards || [card];
+        const cardCount = cardsCount || 1;
+        
+        // Show all cards on pyramid (only show the first card visually)
+        showCardOnPyramid(playedCards[0], position, stackCount);
+        
+        // Create notification message
+        let message;
+        if (cardCount === 1) {
+            message = `${playerName} spilte ${playedCards[0].value}${playedCards[0].suit}!`;
+        } else {
+            const cardNames = playedCards.map(c => `${c.value}${c.suit}`).join(', ');
+            message = `${playerName} spilte ${cardCount} kort (${cardNames}) og deler ut ${sips} slurker!`;
+        }
+        
+        showNotification(message, 'success');
         updateHandCount();
     });
     
@@ -542,15 +557,125 @@ function playCard(cardId) {
         return;
     }
     
-    socket.emit('playCard', { cardId });
+    // Find all playable cards with the same value
+    const playableCards = getPlayableCards();
     
-    // Remove card from hand
-    const cardIndex = playerHand.findIndex(c => c.id === cardId);
-    if (cardIndex !== -1) {
-        playerHand.splice(cardIndex, 1);
-        updatePlayerHand();
-        updateHandCount();
+    if (playableCards.length === 1) {
+        // Only one card can be played, play it immediately
+        playSelectedCards([cardId]);
+    } else {
+        // Multiple cards can be played, show selection interface
+        showCardSelectionInterface(playableCards, cardId);
     }
+}
+
+function getPlayableCards() {
+    const playableCards = [];
+    const handCards = document.querySelectorAll('.hand-card.playable');
+    handCards.forEach(cardElement => {
+        const cardId = cardElement.dataset.cardId;
+        const playerCard = playerHand.find(c => c.id === cardId);
+        if (playerCard) {
+            playableCards.push(playerCard);
+        }
+    });
+    return playableCards;
+}
+
+function showCardSelectionInterface(playableCards, clickedCardId) {
+    // Create selection modal
+    const modal = document.createElement('div');
+    modal.className = 'card-selection-modal';
+    modal.innerHTML = `
+        <div class="card-selection-content">
+            <h3>Velg kort å spille</h3>
+            <p>Du har ${playableCards.length} kort som kan spilles. Velg hvilke du vil spille:</p>
+            <div class="selectable-cards" id="selectable-cards"></div>
+            <div class="selection-actions">
+                <button id="play-selected-btn" class="game-btn" disabled>Spill valgte kort</button>
+                <button id="cancel-selection-btn" class="game-btn secondary">Avbryt</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    const selectableCardsContainer = document.getElementById('selectable-cards');
+    let selectedCards = [clickedCardId]; // Pre-select the clicked card
+    
+    playableCards.forEach(card => {
+        const cardElement = document.createElement('div');
+        cardElement.className = 'selectable-card';
+        cardElement.dataset.cardId = card.id;
+        cardElement.innerHTML = `${card.value}<br>${card.suit}`;
+        
+        // Pre-select the clicked card
+        if (card.id === clickedCardId) {
+            cardElement.classList.add('selected');
+        }
+        
+        cardElement.addEventListener('click', () => {
+            if (selectedCards.includes(card.id)) {
+                // Deselect
+                selectedCards = selectedCards.filter(id => id !== card.id);
+                cardElement.classList.remove('selected');
+            } else {
+                // Select
+                selectedCards.push(card.id);
+                cardElement.classList.add('selected');
+            }
+            updatePlayButtonState(selectedCards);
+        });
+        
+        selectableCardsContainer.appendChild(cardElement);
+    });
+    
+    updatePlayButtonState(selectedCards);
+    
+    document.getElementById('play-selected-btn').addEventListener('click', () => {
+        if (selectedCards.length > 0) {
+            playSelectedCards(selectedCards);
+            document.body.removeChild(modal);
+        }
+    });
+    
+    document.getElementById('cancel-selection-btn').addEventListener('click', () => {
+        document.body.removeChild(modal);
+    });
+    
+    // Close modal when clicking outside
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    });
+}
+
+function updatePlayButtonState(selectedCards) {
+    const playBtn = document.getElementById('play-selected-btn');
+    if (selectedCards.length > 0) {
+        playBtn.disabled = false;
+        playBtn.textContent = `Spill ${selectedCards.length} kort`;
+    } else {
+        playBtn.disabled = true;
+        playBtn.textContent = 'Spill valgte kort';
+    }
+}
+
+function playSelectedCards(cardIds) {
+    // Send multiple cards to server
+    socket.emit('playCard', { cardIds: cardIds });
+    
+    // Remove cards from hand
+    cardIds.forEach(cardId => {
+        const cardIndex = playerHand.findIndex(c => c.id === cardId);
+        if (cardIndex !== -1) {
+            playerHand.splice(cardIndex, 1);
+        }
+    });
+    
+    updatePlayerHand();
+    updateHandCount();
 }
 
 function showChooseDrinker(sips) {
