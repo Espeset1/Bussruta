@@ -773,12 +773,18 @@ function makePyramidClickableForBusRoute() {
     pyramidCards.forEach(card => {
         const level = parseInt(card.dataset.level);
         
+        // Remove any existing bus route click handlers
+        card.classList.remove('clickable-bus-route');
+        
+        // Remove the old event listener by removing and re-adding the element
+        // This is necessary because we don't have a reference to the original handler
+        const newCard = card.cloneNode(true);
+        card.parentNode.replaceChild(newCard, card);
+        
         // Start with only bottom row clickable
         if (level === 0) {
-            card.classList.add('clickable-bus-route');
-            card.addEventListener('click', () => handleBusRouteCardClick(card));
-        } else {
-            card.classList.remove('clickable-bus-route');
+            newCard.classList.add('clickable-bus-route');
+            newCard.addEventListener('click', () => handleBusRouteCardClick(newCard));
         }
     });
 }
@@ -810,14 +816,19 @@ function updateBusRouteLevel(level) {
         currentLevelSpan.textContent = `${level + 1}`;
     }
     
-    // Update clickable cards
+    // Update clickable cards - clear all existing handlers first
     const pyramidCards = document.querySelectorAll('.pyramid-card');
     pyramidCards.forEach(card => {
         const cardLevel = parseInt(card.dataset.level);
         card.classList.remove('clickable-bus-route');
         
+        // Remove existing event listeners by cloning the node
+        const newCard = card.cloneNode(true);
+        card.parentNode.replaceChild(newCard, card);
+        
         if (cardLevel === level) {
-            card.classList.add('clickable-bus-route');
+            newCard.classList.add('clickable-bus-route');
+            newCard.addEventListener('click', () => handleBusRouteCardClick(newCard));
         }
     });
 }
