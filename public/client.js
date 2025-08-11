@@ -458,8 +458,8 @@ function revealPyramidCard(card, position) {
         cardContent.innerHTML = `${card.value}<br>${card.suit}`;
         pyramidCard.classList.add('revealed');
         
-        // Add special styling for face cards
-        if (['J', 'Q', 'K', 'A'].includes(card.value)) {
+        // Add special styling for face cards (11=J, 12=Q, 13=K, 14=A)
+        if (['11', '12', '13', '14'].includes(card.value)) {
             pyramidCard.classList.add('face-card');
         }
     }
@@ -896,9 +896,9 @@ function flipCard(card) {
     card.classList.add('flipped');
     const cardContent = card.querySelector('div:not(.sip-indicator)');
     
-    // Generate random card (simplified for demo)
+    // Generate unique card (using proper deck values 1-14)
     const suits = ['♠', '♣', '♥', '♦'];
-    const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+    const values = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14'];
     const randomSuit = suits[Math.floor(Math.random() * suits.length)];
     const randomValue = values[Math.floor(Math.random() * values.length)];
     
@@ -910,8 +910,8 @@ function flipCard(card) {
         card.style.transform = 'rotateY(0deg)';
     }, 200);
     
-    // Check if it's a face card (for Bussruta rules)
-    if (['J', 'Q', 'K'].includes(randomValue)) {
+    // Check if it's a face card (for Bussruta rules) - 11=J, 12=Q, 13=K, 14=A
+    if (['11', '12', '13', '14'].includes(randomValue)) {
         card.style.borderColor = '#e74c3c';
         card.style.boxShadow = '0 0 10px rgba(231, 76, 60, 0.5)';
         
@@ -992,7 +992,7 @@ const additionalCSS = `
     .level-indicator {
         position: absolute;
         top: -25px;
-        background-color: #3498db;
+        background-color: #f39c12;
         color: white;
         padding: 2px 8px;
         border-radius: 12px;
@@ -1002,7 +1002,7 @@ const additionalCSS = `
     
     .pyramid-card.revealed {
         background: #fff;
-        border-color: #3498db;
+        border-color: #f39c12;
     }
     
     .pyramid-card.face-card {
