@@ -14,9 +14,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Game state management
 const rooms = new Map();
 
-// Card deck setup
+// Card deck setup - 52 unique cards with values 1-14
 const suits = ['♠', '♣', '♥', '♦'];
-const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+const values = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14'];
 
 function createDeck() {
     const deck = [];
@@ -365,13 +365,13 @@ io.on('connection', (socket) => {
         
         // Draw a random card from the clicked position
         const suits = ['♠', '♣', '♥', '♦'];
-        const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+        const values = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14'];
         const randomSuit = suits[Math.floor(Math.random() * suits.length)];
         const randomValue = values[Math.floor(Math.random() * values.length)];
         const drawnCard = { suit: randomSuit, value: randomValue };
         
-        // Check if it's a face card (A=14, J=11, Q=12, K=13)
-        const isFaceCard = ['A', 'J', 'Q', 'K'].includes(randomValue);
+        // Check if it's a face card (11=J, 12=Q, 13=K, 14=A)
+        const isFaceCard = ['11', '12', '13', '14'].includes(randomValue);
         
         // Update the specific pyramid card at this position
         const totalPosition = position;
